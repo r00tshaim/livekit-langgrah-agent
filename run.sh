@@ -9,7 +9,7 @@ uv run python -m agent.main dev &
 AGENT_PID=$!
 
 echo "Starting Streamlit..."
-uv run streamlit run app.py &
+uv run streamlit run frontend.py &
 
 STREAMLIT_PID=$!
 
