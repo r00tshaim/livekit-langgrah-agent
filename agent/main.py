@@ -8,29 +8,44 @@ from livekit.plugins import langchain
 from livekit.plugins import deepgram
 from livekit.plugins import silero
 
-# ✅ NEW: Official import for SIP outbound calls
+# SIP outbound calls via LiveKit API
 from livekit import api
 
 from agent.graph import build_graph
+from agent.property_data import get_vectorstore
 
 load_dotenv()
 
 
-class VoiceAgent(Agent):
+class RealEstateVoiceAgent(Agent):
+    """
+    Real estate marketing voice agent for newly launched housing schemes.
+    Warm, conversational, and proactive in helping clients find their dream home.
+    """
     def __init__(self):
         super().__init__(
-            instructions="You are a helpful voice assistant.",
+            instructions=(
+                "You're Alex, a friendly real estate consultant helping people find their dream home. "
+                "Sound natural and conversational - like chatting with a friend over coffee. "
+                "Be proactive, show enthusiasm, and gently guide toward scheduling property visits. "
+                "Keep responses concise for voice conversation."
+            ),
         )
 
 
 async def entrypoint(ctx: JobContext):
+    # Initialize property vector store on startup
+    print("🏠 Loading property database...")
+    try:
+        get_vectorstore()
+        print("✅ Property database loaded successfully!")
+    except Exception as e:
+        print(f"⚠️ Warning: Could not initialize property database: {e}")
 
-    # STEP1: Build the LangGraph agent and start the session as before
-    # ──────────────────────────────────────────────────────────────
-    # Original agent setup (unchanged)
-    # ──────────────────────────────────────────────────────────────
+    # Build the LangGraph agent
     graph = build_graph()
 
+    # Create agent session
     session = AgentSession(
         llm=langchain.LLMAdapter(graph=graph),
         stt=deepgram.STT(model="nova-2"),
@@ -40,13 +55,10 @@ async def entrypoint(ctx: JobContext):
 
     await session.start(
         room=ctx.room,
-        agent=VoiceAgent(),
+        agent=RealEstateVoiceAgent(),
     )
 
-    #STEP2: Add outbound call logic using LiveKit's SIP API
-    # ──────────────────────────────────────────────────────────────
-    # Outbound call logic (Twilio via LiveKit SIP)
-    # ──────────────────────────────────────────────────────────────
+    # Handle outbound SIP calls if phone number provided in metadata
     metadata = ctx.job.metadata or ""
     try:
         dial_info = json.loads(metadata)
@@ -63,17 +75,16 @@ async def entrypoint(ctx: JobContext):
                     sip_trunk_id=os.getenv("SIP_OUTBOUND_TRUNK_ID"),
                     sip_call_to=phone_number,
                     participant_identity=phone_number,
-                    wait_until_answered=True,          # waits until they pick up
+                    wait_until_answered=True,
                 )
             )
             print(f"✅ Outbound call to {phone_number} connected!")
             await ctx.wait_for_participant(identity=phone_number)
 
-        except api.TwirpError as e:                    # ✅ better error handling
+        except api.TwirpError as e:
             print(f"❌ SIP call failed: {e.message}")
             print(f"   SIP status code: {e.metadata.get('sip_status_code')}")
             print(f"   SIP status: {e.metadata.get('sip_status')}")
-            # ctx.shutdown()   # uncomment if you want to stop on failure
 
 
 from livekit.agents import WorkerOptions
@@ -83,6 +94,6 @@ if __name__ == "__main__":
     run_app(
         WorkerOptions(
             entrypoint_fnc=entrypoint,
-            agent_name="voice-agent",
+            agent_name="realestate-voice-agent",
         )
     )
