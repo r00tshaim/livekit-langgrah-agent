@@ -24,6 +24,26 @@ class VoiceAgent(Agent):
 
 
 async def entrypoint(ctx: JobContext):
+
+    # STEP1: Build the LangGraph agent and start the session as before
+    # ──────────────────────────────────────────────────────────────
+    # Original agent setup (unchanged)
+    # ──────────────────────────────────────────────────────────────
+    graph = build_graph()
+
+    session = AgentSession(
+        llm=langchain.LLMAdapter(graph=graph),
+        stt=deepgram.STT(model="nova-2"),
+        tts=deepgram.TTS(),
+        vad=silero.VAD.load(),
+    )
+
+    await session.start(
+        room=ctx.room,
+        agent=VoiceAgent(),
+    )
+
+    #STEP2: Add outbound call logic using LiveKit's SIP API
     # ──────────────────────────────────────────────────────────────
     # Outbound call logic (Twilio via LiveKit SIP)
     # ──────────────────────────────────────────────────────────────
@@ -55,23 +75,6 @@ async def entrypoint(ctx: JobContext):
             print(f"   SIP status: {e.metadata.get('sip_status')}")
             # ctx.shutdown()   # uncomment if you want to stop on failure
 
-    # ──────────────────────────────────────────────────────────────
-    # Original agent setup (unchanged)
-    # ──────────────────────────────────────────────────────────────
-    graph = build_graph()
-
-    session = AgentSession(
-        llm=langchain.LLMAdapter(graph=graph),
-        stt=deepgram.STT(model="nova-2"),
-        tts=deepgram.TTS(),
-        vad=silero.VAD.load(),
-    )
-
-    await session.start(
-        room=ctx.room,
-        agent=VoiceAgent(),
-    )
-
 
 from livekit.agents import WorkerOptions
 from livekit.agents.cli import run_app
@@ -79,6 +82,7 @@ from livekit.agents.cli import run_app
 if __name__ == "__main__":
     run_app(
         WorkerOptions(
-            entrypoint_fnc=entrypoint
+            entrypoint_fnc=entrypoint,
+            agent_name="voice-agent",
         )
     )
