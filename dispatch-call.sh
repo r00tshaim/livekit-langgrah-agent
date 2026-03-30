@@ -14,6 +14,6 @@ PHONE_NUMBER="$1"
 echo "📞 Dispatching outbound call to $PHONE_NUMBER ..."
 
 # Single line - impossible to break on copy-paste
-lk dispatch create --new-room --agent-name voice-agent --metadata "{\"phone_number\": \"$PHONE_NUMBER\"}"
+lk dispatch create --new-room --agent-name realestate-voice-agent --metadata "{\"phone_number\": \"$PHONE_NUMBER\"}"
 
 echo "✅ Dispatch created successfully!"

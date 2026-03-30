@@ -7,6 +7,7 @@ from livekit.agents import AgentSession, Agent, JobContext
 from livekit.plugins import langchain
 from livekit.plugins import deepgram
 from livekit.plugins import silero
+from livekit.plugins import sarvam
 
 # SIP outbound calls via LiveKit API
 from livekit import api
@@ -25,10 +26,12 @@ class RealEstateVoiceAgent(Agent):
     def __init__(self):
         super().__init__(
             instructions=(
-                "You're Alex, a friendly real estate consultant helping people find their dream home. "
-                "Sound natural and conversational - like chatting with a friend over coffee. "
-                "Be proactive, show enthusiasm, and gently guide toward scheduling property visits. "
-                "Keep responses concise for voice conversation."
+                "Namaste! You're Priya, a warm and friendly real estate consultant helping families find their perfect home. "
+                "Speak in a natural, conversational tone - like chatting with a friend or family member. "
+                "Be respectful, patient, and genuinely interested in understanding their needs. "
+                "Show appropriate enthusiasm while remaining grounded and trustworthy. "
+                "Gently guide conversations toward scheduling property site visits. "
+                "Keep responses clear and concise for voice conversation."
             ),
         )
 
@@ -48,8 +51,16 @@ async def entrypoint(ctx: JobContext):
     # Create agent session
     session = AgentSession(
         llm=langchain.LLMAdapter(graph=graph),
-        stt=deepgram.STT(model="nova-2"),
-        tts=deepgram.TTS(),
+        stt=sarvam.STT(
+                language="unknown",  # Auto-detect language, or use "en-IN", "hi-IN", etc.
+                model="saaras:v3",
+                mode="transcribe"
+        ),
+        tts=sarvam.TTS(
+                target_language_code="en-IN",
+                model="bulbul:v3",
+                speaker="priya"  # Female: priya, simran, ishita, kavya | Male: aditya, anand, rohan
+        ),
         vad=silero.VAD.load(),
     )
 
@@ -85,6 +96,9 @@ async def entrypoint(ctx: JobContext):
             print(f"❌ SIP call failed: {e.message}")
             print(f"   SIP status code: {e.metadata.get('sip_status_code')}")
             print(f"   SIP status: {e.metadata.get('sip_status')}")
+            ctx.shutdown()          # Shutdown agent if SIP call fails, since it's a critical part of the use case
+    else:
+        print("ℹ️ No phone number provided for outbound call. Agent will only interact with in-room participants.")
 
 
 from livekit.agents import WorkerOptions
